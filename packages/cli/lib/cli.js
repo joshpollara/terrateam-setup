@@ -37,6 +37,19 @@ async function collectUserInfo(options = {}) {
     };
   }
 
+  // If user explicitly disabled telemetry and didn't provide any user info, skip all prompts
+  const hasUserInfo = options.firstName || options.lastName || options.email || options.onboardingCall;
+  if (options.telemetry === false && !hasUserInfo) {
+    // Skip all user info collection when telemetry is disabled and no user info provided
+    return {
+      firstName: '',
+      lastName: '',
+      email: '',
+      onboardingCall: false,
+      sendTelemetry: false
+    };
+  }
+
   // Only prompt for missing information
   if (!options.firstName && !options.lastName && !options.email && !options.onboardingCall) {
     console.log(chalk.bold('\n📋 User Information (Optional)\n'));
