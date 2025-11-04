@@ -24,9 +24,14 @@ make docker-github
 GITLAB_TOKEN=glpat-xxx make docker-gitlab
 ```
 
-### Manual (Docker)
+### Manual (Docker/Podman)
 
 ```bash
+# Using helper script (recommended)
+./docker-run.sh build
+./docker-run.sh github
+
+# Or using docker-compose (if available)
 docker-compose build
 docker-compose run --rm terrateam-setup --github
 ```
@@ -52,32 +57,44 @@ That's it! The CLI will open your browser to create a GitHub App, then save your
 
 ## Installation
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker/Podman (Recommended)
 
-No Go installation required! See [DOCKER.md](DOCKER.md) for detailed instructions.
+No Go installation required! Works with both Docker and Podman. See [DOCKER.md](DOCKER.md) for detailed instructions.
 
 ```bash
-# Build the image
-docker-compose build
+# Using Makefile (easiest)
+make docker-build
+make docker-github
 
-# Run setup
+# Or using helper script directly
+./docker-run.sh build
+./docker-run.sh github
+
+# Or using docker-compose (if compatible)
+docker-compose build
 docker-compose run --rm terrateam-setup --github
 ```
 
 The `.env` file will be created in your current directory.
 
-### Option 2: Build from Source
+### Option 2: Using Makefile (Local Build)
 
 ```bash
-cd cmd/terrateam-setup
-go build -o terrateam-setup
+# Build and run in one command
+make run-github
+
+# Or build separately
+make build
+./terrateam-setup --github
 ```
 
-### Option 3: Run Without Building
+### Option 3: Build from Source Manually
 
 ```bash
 cd cmd/terrateam-setup
-go run main.go --github
+go build -o ../../terrateam-setup
+cd ../..
+./terrateam-setup --github
 ```
 
 ## Usage
@@ -121,8 +138,8 @@ Additional topics covered:
 
 ## Requirements
 
-### Docker (Option 1)
-- Docker and Docker Compose
+### Docker/Podman (Option 1)
+- Docker OR Podman (with docker-run.sh script)
 - Internet connection
 - GitHub or GitLab account
 

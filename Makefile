@@ -20,12 +20,12 @@ help:
 	@echo "  make docker-github"
 	@echo "  GITLAB_TOKEN=glpat-xxx make docker-gitlab"
 
-# Docker commands
+# Docker/Podman commands (using docker-run.sh for compatibility)
 docker-build:
-	docker-compose build
+	./docker-run.sh build
 
 docker-github:
-	docker-compose run --rm terrateam-setup --github
+	./docker-run.sh github
 
 docker-gitlab:
 ifndef GITLAB_TOKEN
@@ -33,17 +33,22 @@ ifndef GITLAB_TOKEN
 	@echo "Usage: GITLAB_TOKEN=glpat-xxx make docker-gitlab"
 	@exit 1
 endif
-	docker-compose run --rm terrateam-setup --gitlab --gitlab-token=$(GITLAB_TOKEN)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) ./docker-run.sh gitlab
 
 docker-clean:
-	docker-compose down --rmi all
+	@if command -v podman > /dev/null; then \
+		podman rmi terrateam-setup:latest 2>/dev/null || true; \
+	elif command -v docker > /dev/null; then \
+		docker rmi terrateam-setup:latest 2>/dev/null || true; \
+	fi
+	@echo "Cleaned Docker/Podman image"
 
 # Local Go commands
 build:
-	cd cmd/terrateam-setup && go build -o terrateam-setup
+	cd cmd/terrateam-setup && go build -o ../../terrateam-setup
 
 run-github: build
-	cd cmd/terrateam-setup && ./terrateam-setup --github
+	./terrateam-setup --github
 
 run-gitlab: build
 ifndef GITLAB_TOKEN
@@ -51,16 +56,16 @@ ifndef GITLAB_TOKEN
 	@echo "Usage: GITLAB_TOKEN=glpat-xxx make run-gitlab"
 	@exit 1
 endif
-	cd cmd/terrateam-setup && ./terrateam-setup --gitlab --gitlab-token=$(GITLAB_TOKEN)
+	./terrateam-setup --gitlab --gitlab-token=$(GITLAB_TOKEN)
 
 test:
 	cd cmd/terrateam-setup && go test ./...
 
 clean:
-	rm -f cmd/terrateam-setup/terrateam-setup
 	rm -f terrateam-setup
 	rm -f .env
 	rm -f *.pem
+	@echo "Cleaned build artifacts and .env file"
 
 # Quick validation
 validate:

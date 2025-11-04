@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM docker.io/library/golang:1.21-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git
@@ -20,7 +20,7 @@ COPY cmd/terrateam-setup/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o terrateam-setup .
 
 # Runtime stage
-FROM alpine:latest
+FROM docker.io/library/alpine:latest
 
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
