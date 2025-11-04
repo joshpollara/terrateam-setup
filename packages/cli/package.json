@@ -1,0 +1,40 @@
+{
+  "name": "terrateam-setup-cli",
+  "version": "1.0.0",
+  "description": "CLI tool for setting up Terrateam GitHub or GitLab App",
+  "main": "index.js",
+  "bin": {
+    "terrateam-setup": "./bin/terrateam-setup.js"
+  },
+  "scripts": {
+    "start": "node bin/terrateam-setup.js",
+    "build": "echo 'No build step required'",
+    "test": "echo 'Tests not yet implemented'"
+  },
+  "keywords": [
+    "terrateam",
+    "terraform",
+    "opentofu",
+    "gitops",
+    "cli",
+    "setup"
+  ],
+  "author": "Terrateam",
+  "license": "ISC",
+  "dependencies": {
+    "inquirer": "^8.2.5",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "open": "^8.4.2",
+    "express": "^4.17.1",
+    "update-dotenv": "^1.1.1",
+    "js-yaml": "^3.14.1",
+    "@octokit/core": "^3.2.4",
+    "@octokit/plugin-retry": "^3.0.6",
+    "@octokit/plugin-throttling": "^3.3.4",
+    "dotenv": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=10.21"
+  }
+}
