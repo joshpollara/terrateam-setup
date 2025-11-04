@@ -190,7 +190,7 @@ function startCallbackServerWithManifest(port = 3000, manifest, createAppUrl) {
 /**
  * Setup GitHub App
  */
-async function setupGitHub(userInfo, tunnelCredentials) {
+async function setupGitHub(userInfo, tunnelCredentials, options = {}) {
   console.log(chalk.bold('\n🐙 GitHub App Setup\n'));
 
   // Check for development mode
@@ -200,45 +200,54 @@ async function setupGitHub(userInfo, tunnelCredentials) {
     console.log(chalk.yellow('⚠️  Development mode enabled - using mock data\n'));
   }
 
-  // Ask about GitHub Enterprise
-  const { useGHE } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'useGHE',
-      message: 'Are you using GitHub Enterprise Server (GHE)?',
-      default: false
-    }
-  ]);
+  // Check if GHE options were provided via CLI
+  let gheHost = options.gheHost;
+  let gheProtocol = options.gheProtocol || 'https';
+  let ghOrg = options.ghOrg;
 
-  let gheHost, gheProtocol, ghOrg;
-  if (useGHE) {
-    const gheAnswers = await inquirer.prompt([
+  // Only prompt if not provided and not in non-interactive mode
+  if (!gheHost && !options.nonInteractive) {
+    // Ask about GitHub Enterprise
+    const { useGHE } = await inquirer.prompt([
       {
-        type: 'input',
-        name: 'gheHost',
-        message: 'GitHub Enterprise Host (e.g., github.company.com):',
-        validate: (input) => input.length > 0 || 'Host is required'
-      },
-      {
-        type: 'list',
-        name: 'gheProtocol',
-        message: 'Protocol:',
-        choices: ['https', 'http'],
-        default: 'https'
-      },
-      {
-        type: 'input',
-        name: 'ghOrg',
-        message: 'Organization name (optional):',
-        default: ''
+        type: 'confirm',
+        name: 'useGHE',
+        message: 'Are you using GitHub Enterprise Server (GHE)?',
+        default: false
       }
     ]);
 
-    gheHost = gheAnswers.gheHost;
-    gheProtocol = gheAnswers.gheProtocol;
-    ghOrg = gheAnswers.ghOrg;
+    if (useGHE) {
+      const gheAnswers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'gheHost',
+          message: 'GitHub Enterprise Host (e.g., github.company.com):',
+          validate: (input) => input.length > 0 || 'Host is required'
+        },
+        {
+          type: 'list',
+          name: 'gheProtocol',
+          message: 'Protocol:',
+          choices: ['https', 'http'],
+          default: 'https'
+        },
+        {
+          type: 'input',
+          name: 'ghOrg',
+          message: 'Organization name (optional):',
+          default: ''
+        }
+      ]);
 
-    // Set environment variables for GHE
+      gheHost = gheAnswers.gheHost;
+      gheProtocol = gheAnswers.gheProtocol;
+      ghOrg = gheAnswers.ghOrg;
+    }
+  }
+
+  // Set environment variables for GHE if provided
+  if (gheHost) {
     process.env.GHE_HOST = gheHost;
     process.env.GHE_PROTOCOL = gheProtocol;
     if (ghOrg) {

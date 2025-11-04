@@ -4,7 +4,9 @@ A standalone command-line interface for setting up Terrateam with GitHub or GitL
 
 ## Features
 
+- ⚡ **Command-Line Arguments** - Pass options via flags for instant setup
 - 🚀 **Interactive Setup Wizard** - Step-by-step prompts for easy configuration
+- 🤖 **Non-Interactive Mode** - Perfect for automation and CI/CD
 - 🐙 **GitHub Support** - Automatic GitHub App creation via manifest
 - 🦊 **GitLab Support** - Personal Access Token (PAT) configuration
 - 🌐 **Tunnel Integration** - Optional Terratunnel configuration for webhook delivery
@@ -42,6 +44,19 @@ npm start
 terrateam-setup
 ```
 
+### With Command-Line Arguments
+
+```bash
+# Fastest path - GitHub with no tunnel
+terrateam-setup --github --no-tunnel --no-telemetry
+
+# GitLab with token
+terrateam-setup --gitlab --gitlab-token=glpat-xxx --no-tunnel
+
+# Non-interactive mode (for automation)
+terrateam-setup --non-interactive --github --no-tunnel
+```
+
 ### With Environment Variables
 
 ```bash
@@ -51,6 +66,99 @@ TERRATEAM_DEV_MODE=true npm start
 # GitHub Enterprise
 GHE_HOST=github.company.com GHE_PROTOCOL=https npm start
 ```
+
+## Command-Line Arguments
+
+Pass arguments to skip interactive prompts and speed up setup.
+
+### General Options
+
+| Flag | Description |
+|------|-------------|
+| `--help` | Show help message with all options |
+| `--version` | Show CLI version |
+| `--non-interactive` | Run without prompts (uses defaults) |
+| `--port <port>` | Port for local callback server (default: 3000) |
+
+### VCS Provider
+
+| Flag | Description |
+|------|-------------|
+| `--github` | Use GitHub as VCS provider |
+| `--gitlab` | Use GitLab as VCS provider |
+
+### User Information (Optional)
+
+| Flag | Description |
+|------|-------------|
+| `--email <email>` | Your email address |
+| `--first-name <name>` | Your first name |
+| `--last-name <name>` | Your last name |
+| `--onboarding-call` | Request an onboarding call |
+| `--no-telemetry` | Disable telemetry |
+
+### Tunnel Configuration
+
+| Flag | Description |
+|------|-------------|
+| `--tunnel` | Enable tunnel configuration (requires OAuth) |
+| `--no-tunnel` | Skip tunnel configuration |
+
+### GitHub Options
+
+| Flag | Description |
+|------|-------------|
+| `--ghe-host <host>` | GitHub Enterprise host (e.g., github.company.com) |
+| `--ghe-protocol <protocol>` | GHE protocol: `http` or `https` (default: https) |
+| `--gh-org <org>` | GitHub organization name |
+
+### GitLab Options
+
+| Flag | Description |
+|------|-------------|
+| `--gitlab-url <url>` | GitLab instance URL (default: https://gitlab.com) |
+| `--gitlab-token <token>` | GitLab Personal Access Token |
+
+### Examples
+
+**Fastest GitHub setup:**
+```bash
+terrateam-setup --github --no-tunnel --no-telemetry
+```
+
+**GitHub Enterprise:**
+```bash
+terrateam-setup --github --ghe-host=github.company.com --no-tunnel
+```
+
+**GitLab with token:**
+```bash
+terrateam-setup --gitlab --gitlab-token=glpat-xxx --no-tunnel
+```
+
+**Self-hosted GitLab:**
+```bash
+terrateam-setup --gitlab \
+  --gitlab-url=https://gitlab.company.com \
+  --gitlab-token=glpat-xxx \
+  --no-tunnel
+```
+
+**Non-interactive (for CI/CD):**
+```bash
+terrateam-setup --non-interactive --github --no-tunnel --no-telemetry
+```
+
+**With user information:**
+```bash
+terrateam-setup --github \
+  --email=you@company.com \
+  --first-name=John \
+  --last-name=Doe \
+  --no-tunnel
+```
+
+**📚 See [EXAMPLES.md](./EXAMPLES.md) for more comprehensive examples and use cases.**
 
 ## Setup Flow
 

@@ -22,24 +22,47 @@ function displayBanner() {
 /**
  * Collect user information and telemetry preferences
  */
-async function collectUserInfo() {
-  console.log(chalk.bold('\n📋 User Information (Optional)\n'));
-  console.log(chalk.gray('Help us improve Terrateam by sharing your information.\n'));
+async function collectUserInfo(options = {}) {
+  // Use provided options or prompt for missing ones
+  const questions = [];
 
-  const answers = await inquirer.prompt([
-    {
+  if (options.nonInteractive) {
+    // In non-interactive mode, use defaults
+    return {
+      firstName: options.firstName || '',
+      lastName: options.lastName || '',
+      email: options.email || '',
+      onboardingCall: options.onboardingCall || false,
+      sendTelemetry: options.telemetry !== false // Default to true unless explicitly disabled
+    };
+  }
+
+  // Only prompt for missing information
+  if (!options.firstName && !options.lastName && !options.email && !options.onboardingCall) {
+    console.log(chalk.bold('\n📋 User Information (Optional)\n'));
+    console.log(chalk.gray('Help us improve Terrateam by sharing your information.\n'));
+  }
+
+  if (options.firstName === undefined) {
+    questions.push({
       type: 'input',
       name: 'firstName',
       message: 'First Name:',
       default: ''
-    },
-    {
+    });
+  }
+
+  if (options.lastName === undefined) {
+    questions.push({
       type: 'input',
       name: 'lastName',
       message: 'Last Name:',
       default: ''
-    },
-    {
+    });
+  }
+
+  if (options.email === undefined) {
+    questions.push({
       type: 'input',
       name: 'email',
       message: 'Email:',
@@ -49,28 +72,56 @@ async function collectUserInfo() {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(input) || 'Please enter a valid email address';
       }
-    },
-    {
+    });
+  }
+
+  if (options.onboardingCall === undefined) {
+    questions.push({
       type: 'confirm',
       name: 'onboardingCall',
       message: 'Would you like help getting started with Terrateam? (Optional onboarding call)',
       default: false
-    },
-    {
+    });
+  }
+
+  if (options.telemetry === undefined) {
+    questions.push({
       type: 'confirm',
       name: 'sendTelemetry',
       message: 'Send telemetry to help improve Terrateam?',
       default: true
-    }
-  ]);
+    });
+  }
 
-  return answers;
+  const answers = questions.length > 0 ? await inquirer.prompt(questions) : {};
+
+  return {
+    firstName: options.firstName || answers.firstName || '',
+    lastName: options.lastName || answers.lastName || '',
+    email: options.email || answers.email || '',
+    onboardingCall: options.onboardingCall || answers.onboardingCall || false,
+    sendTelemetry: options.telemetry !== false ? (answers.sendTelemetry !== false) : false
+  };
 }
 
 /**
  * Select VCS provider
  */
-async function selectVCS() {
+async function selectVCS(options = {}) {
+  // Use provided option or prompt
+  if (options.github) {
+    return 'github';
+  }
+
+  if (options.gitlab) {
+    return 'gitlab';
+  }
+
+  if (options.nonInteractive) {
+    // Default to GitHub in non-interactive mode
+    return 'github';
+  }
+
   console.log(chalk.bold('\n🔧 Choose Your Version Control System\n'));
 
   const { vcsProvider } = await inquirer.prompt([
@@ -99,27 +150,56 @@ async function selectVCS() {
 /**
  * Main CLI runner
  */
-async function runCLI() {
+async function runCLI(options = {}) {
   try {
-    // Display welcome banner
-    displayBanner();
+    // Display welcome banner (skip in non-interactive mode)
+    if (!options.nonInteractive) {
+      displayBanner();
+    } else {
+      console.log(chalk.cyan.bold('\nTerrateam Setup (Non-Interactive Mode)\n'));
+    }
+
+    // Set environment variables from options
+    if (options.gheHost) {
+      process.env.GHE_HOST = options.gheHost;
+    }
+    if (options.gheProtocol) {
+      process.env.GHE_PROTOCOL = options.gheProtocol;
+    }
+    if (options.ghOrg) {
+      process.env.GH_ORG = options.ghOrg;
+    }
+    if (options.port) {
+      process.env.PORT = options.port;
+    }
 
     // Collect user information
-    const userInfo = await collectUserInfo();
+    const userInfo = await collectUserInfo(options);
 
     // Select VCS provider
-    const vcsProvider = await selectVCS();
+    const vcsProvider = await selectVCS(options);
 
-    // Configure tunnel (function handles its own prompts)
+    // Configure tunnel
     let tunnelCredentials = null;
-    tunnelCredentials = await configureTunnel(vcsProvider);
+    if (options.tunnel === true) {
+      // Explicitly requested tunnel
+      tunnelCredentials = await configureTunnel(vcsProvider, options);
+    } else if (options.tunnel === false) {
+      // Explicitly disabled tunnel
+      console.log(chalk.gray('\n✓ Skipping tunnel configuration (--no-tunnel flag)\n'));
+      tunnelCredentials = null;
+    } else if (!options.nonInteractive) {
+      // Interactive mode - let configureTunnel handle prompts
+      tunnelCredentials = await configureTunnel(vcsProvider, options);
+    }
+    // In non-interactive mode without --tunnel, skip tunnel
 
     // Setup based on VCS provider
     let setupResult;
     if (vcsProvider === 'github') {
-      setupResult = await setupGitHub(userInfo, tunnelCredentials);
+      setupResult = await setupGitHub(userInfo, tunnelCredentials, options);
     } else {
-      setupResult = await setupGitLab(userInfo, tunnelCredentials);
+      setupResult = await setupGitLab(userInfo, tunnelCredentials, options);
     }
 
     // Send telemetry if user opted in
@@ -153,6 +233,7 @@ async function runCLI() {
   } catch (error) {
     if (error.isTtyError) {
       console.error(chalk.red('\n❌ CLI Error: Terminal does not support interactive prompts'));
+      console.error(chalk.yellow('Hint: Use --non-interactive flag for non-interactive mode'));
     } else if (error.message === 'User cancelled') {
       console.log(chalk.yellow('\n⚠️  Setup cancelled by user'));
       process.exit(0);

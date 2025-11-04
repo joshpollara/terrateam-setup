@@ -9,90 +9,114 @@ const updateDotenv = require('update-dotenv');
 /**
  * Setup GitLab with Personal Access Token
  */
-async function setupGitLab(userInfo, tunnelCredentials) {
+async function setupGitLab(userInfo, tunnelCredentials, options = {}) {
   console.log(chalk.bold('\n🦊 GitLab Setup\n'));
 
-  console.log(chalk.gray('GitLab setup requires a Personal Access Token (PAT) for the bot account.\n'));
+  // Use options if provided
+  let gitlabUrl = options.gitlabUrl || 'https://gitlab.com';
+  let gitlabApiUrl;
 
-  // Ask about GitLab instance
-  const { gitlabInstance } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'gitlabInstance',
-      message: 'Which GitLab instance are you using?',
-      choices: [
-        {
-          name: 'GitLab.com (SaaS)',
-          value: 'gitlab.com',
-          short: 'GitLab.com'
-        },
-        {
-          name: 'Self-hosted GitLab',
-          value: 'self-hosted',
-          short: 'Self-hosted'
-        }
-      ]
-    }
-  ]);
+  if (gitlabUrl && gitlabUrl !== 'https://gitlab.com') {
+    gitlabUrl = gitlabUrl.replace(/\/$/, ''); // Remove trailing slash
+    gitlabApiUrl = `${gitlabUrl}/api/v4`;
+  } else if (!options.gitlabUrl && !options.nonInteractive) {
+    // Only prompt if URL not provided and in interactive mode
+    console.log(chalk.gray('GitLab setup requires a Personal Access Token (PAT) for the bot account.\n'));
 
-  let gitlabUrl = 'https://gitlab.com';
-  let gitlabApiUrl = 'https://gitlab.com/api/v4';
-
-  if (gitlabInstance === 'self-hosted') {
-    const { customUrl } = await inquirer.prompt([
+    // Ask about GitLab instance
+    const { gitlabInstance } = await inquirer.prompt([
       {
-        type: 'input',
-        name: 'customUrl',
-        message: 'Enter your GitLab instance URL (e.g., https://gitlab.company.com):',
-        validate: (input) => {
-          try {
-            new URL(input);
-            return true;
-          } catch {
-            return 'Please enter a valid URL';
+        type: 'list',
+        name: 'gitlabInstance',
+        message: 'Which GitLab instance are you using?',
+        choices: [
+          {
+            name: 'GitLab.com (SaaS)',
+            value: 'gitlab.com',
+            short: 'GitLab.com'
+          },
+          {
+            name: 'Self-hosted GitLab',
+            value: 'self-hosted',
+            short: 'Self-hosted'
           }
-        }
+        ]
       }
     ]);
 
-    gitlabUrl = customUrl.replace(/\/$/, ''); // Remove trailing slash
-    gitlabApiUrl = `${gitlabUrl}/api/v4`;
-  }
+    gitlabUrl = 'https://gitlab.com';
+    gitlabApiUrl = 'https://gitlab.com/api/v4';
 
-  // Display instructions for creating PAT
-  console.log(chalk.bold('\n📝 Create Personal Access Token\n'));
-  console.log(chalk.gray('You need to create a Personal Access Token with the following scopes:\n'));
-  console.log(chalk.white('  • ') + chalk.cyan('api') + chalk.gray(' - Full API access'));
-  console.log(chalk.white('  • ') + chalk.cyan('read_repository') + chalk.gray(' - Read repository data'));
-  console.log(chalk.white('  • ') + chalk.cyan('write_repository') + chalk.gray(' - Write to repository'));
-  console.log('');
+    if (gitlabInstance === 'self-hosted') {
+      const { customUrl } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'customUrl',
+          message: 'Enter your GitLab instance URL (e.g., https://gitlab.company.com):',
+          validate: (input) => {
+            try {
+              new URL(input);
+              return true;
+            } catch {
+              return 'Please enter a valid URL';
+            }
+          }
+        }
+      ]);
 
-  const { openBrowser } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'openBrowser',
-      message: `Open browser to create token at ${gitlabUrl}?`,
-      default: true
+      gitlabUrl = customUrl.replace(/\/$/, ''); // Remove trailing slash
+      gitlabApiUrl = `${gitlabUrl}/api/v4`;
     }
-  ]);
-
-  if (openBrowser) {
-    const tokenUrl = `${gitlabUrl}/-/profile/personal_access_tokens`;
-    await open(tokenUrl);
-    console.log(chalk.gray(`\nOpened: ${tokenUrl}\n`));
   } else {
-    console.log(chalk.gray(`\nManually visit: ${gitlabUrl}/-/profile/personal_access_tokens\n`));
+    // Non-interactive or URL provided
+    gitlabApiUrl = gitlabUrl === 'https://gitlab.com' ? 'https://gitlab.com/api/v4' : `${gitlabUrl}/api/v4`;
   }
 
-  // Prompt for PAT
-  const { personalAccessToken } = await inquirer.prompt([
-    {
-      type: 'password',
-      name: 'personalAccessToken',
-      message: 'Enter your GitLab Personal Access Token:',
-      validate: (input) => input.length > 0 || 'Token is required'
+  // Get PAT from options or prompt
+  let personalAccessToken = options.gitlabToken;
+
+  if (!personalAccessToken) {
+    if (options.nonInteractive) {
+      throw new Error('GitLab Personal Access Token is required. Use --gitlab-token flag.');
     }
-  ]);
+
+    // Display instructions for creating PAT
+    console.log(chalk.bold('\n📝 Create Personal Access Token\n'));
+    console.log(chalk.gray('You need to create a Personal Access Token with the following scopes:\n'));
+    console.log(chalk.white('  • ') + chalk.cyan('api') + chalk.gray(' - Full API access'));
+    console.log(chalk.white('  • ') + chalk.cyan('read_repository') + chalk.gray(' - Read repository data'));
+    console.log(chalk.white('  • ') + chalk.cyan('write_repository') + chalk.gray(' - Write to repository'));
+    console.log('');
+
+    const { openBrowser } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'openBrowser',
+        message: `Open browser to create token at ${gitlabUrl}?`,
+        default: true
+      }
+    ]);
+
+    if (openBrowser) {
+      const tokenUrl = `${gitlabUrl}/-/profile/personal_access_tokens`;
+      await open(tokenUrl);
+      console.log(chalk.gray(`\nOpened: ${tokenUrl}\n`));
+    } else {
+      console.log(chalk.gray(`\nManually visit: ${gitlabUrl}/-/profile/personal_access_tokens\n`));
+    }
+
+    // Prompt for PAT
+    const { token } = await inquirer.prompt([
+      {
+        type: 'password',
+        name: 'token',
+        message: 'Enter your GitLab Personal Access Token:',
+        validate: (input) => input.length > 0 || 'Token is required'
+      }
+    ]);
+
+    personalAccessToken = token;
+  }
 
   // Validate the token by making a test API call
   const spinner = ora('Validating token...').start();

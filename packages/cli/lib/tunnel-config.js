@@ -8,7 +8,12 @@ const https = require('https');
 /**
  * Configure Terratunnel with OAuth
  */
-async function configureTunnel(vcsProvider = 'github') {
+async function configureTunnel(vcsProvider = 'github', options = {}) {
+  // If non-interactive mode and tunnel not explicitly requested, skip
+  if (options.nonInteractive && !options.tunnel) {
+    return null;
+  }
+
   console.log(chalk.bold('\n🌐 Tunnel Configuration\n'));
 
   console.log(chalk.gray('Terratunnel provides a secure tunnel for webhook delivery.'));
