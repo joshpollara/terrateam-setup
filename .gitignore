@@ -4,3 +4,6 @@ npm-debug.log
 .env
 coverage
 node_modules/
+
+# Go binaries
+cmd/terrateam-setup/terrateam-setup
