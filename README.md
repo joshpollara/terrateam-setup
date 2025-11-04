@@ -6,6 +6,33 @@ A standalone CLI tool for setting up Terrateam with GitHub or GitLab. Written in
 
 ## Quick Start
 
+### Fastest Way (Interactive Script)
+
+```bash
+./quick-start.sh
+```
+
+The script will guide you through the setup process with an interactive menu.
+
+### Using Makefile
+
+```bash
+# GitHub setup
+make docker-github
+
+# GitLab setup
+GITLAB_TOKEN=glpat-xxx make docker-gitlab
+```
+
+### Manual (Docker)
+
+```bash
+docker-compose build
+docker-compose run --rm terrateam-setup --github
+```
+
+### Manual (Go)
+
 ```bash
 cd cmd/terrateam-setup
 go build -o terrateam-setup
