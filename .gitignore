@@ -1,9 +1,25 @@
-npm-debug.log
+# Environment files
+.env
 *.pem
 !mock-cert.pem
-.env
-coverage
-node_modules/
 
 # Go binaries
 cmd/terrateam-setup/terrateam-setup
+terrateam-setup
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage
+
+# Go workspace file
+go.work
