@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  terrateam-setup:
+    build: .
+    container_name: terrateam-setup
+    ports:
+      # Map container port 3000 to host port 3000 for OAuth callbacks
+      - "3000:3000"
+    volumes:
+      # Mount current directory to /output so .env is written to host
+      - .:/output
+    working_dir: /output
+    # Override entrypoint to run with output in mounted directory
+    entrypoint: ["/app/terrateam-setup"]
+    # Example command - override this when running
+    command: ["--help"]
+    network_mode: "host"
+    environment:
+      # These can be overridden via .env file or command line
+      - PORT=3000

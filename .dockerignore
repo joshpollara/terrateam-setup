@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+*.pem
+!mock-cert.pem
+
+# Documentation
+*.md
+!cmd/terrateam-setup/README.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode
+.idea
+
+# Build artifacts (will be built in container)
+cmd/terrateam-setup/terrateam-setup
+terrateam-setup
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Tests
+*.test
+coverage
+*.out

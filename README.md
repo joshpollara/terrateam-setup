@@ -25,14 +25,28 @@ That's it! The CLI will open your browser to create a GitHub App, then save your
 
 ## Installation
 
-### Build from Source
+### Option 1: Docker (Recommended)
+
+No Go installation required! See [DOCKER.md](DOCKER.md) for detailed instructions.
+
+```bash
+# Build the image
+docker-compose build
+
+# Run setup
+docker-compose run --rm terrateam-setup --github
+```
+
+The `.env` file will be created in your current directory.
+
+### Option 2: Build from Source
 
 ```bash
 cd cmd/terrateam-setup
 go build -o terrateam-setup
 ```
 
-### Run Without Building
+### Option 3: Run Without Building
 
 ```bash
 cd cmd/terrateam-setup
@@ -68,8 +82,10 @@ go run main.go --github
 
 ## Documentation
 
-See [cmd/terrateam-setup/README.md](cmd/terrateam-setup/README.md) for comprehensive documentation including:
+- **[Docker Usage](DOCKER.md)** - Running with Docker (recommended)
+- **[CLI Documentation](cmd/terrateam-setup/README.md)** - Comprehensive CLI guide
 
+Additional topics covered:
 - All available flags
 - GitHub Enterprise setup
 - GitLab configuration
@@ -78,7 +94,13 @@ See [cmd/terrateam-setup/README.md](cmd/terrateam-setup/README.md) for comprehen
 
 ## Requirements
 
-- Go 1.21+ (for building)
+### Docker (Option 1)
+- Docker and Docker Compose
+- Internet connection
+- GitHub or GitLab account
+
+### Building from Source (Options 2-3)
+- Go 1.21+
 - Internet connection
 - GitHub or GitLab account
 

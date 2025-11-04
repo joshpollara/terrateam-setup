@@ -16,6 +16,16 @@ A standalone CLI tool written in Go for setting up Terrateam with GitHub or GitL
 
 ## Installation
 
+### Docker (Recommended)
+
+No Go installation required! See [../../DOCKER.md](../../DOCKER.md) for detailed instructions.
+
+From the repository root:
+```bash
+docker-compose build
+docker-compose run --rm terrateam-setup --github
+```
+
 ### Build from Source
 
 ```bash
