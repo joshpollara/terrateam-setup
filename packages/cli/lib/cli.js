@@ -110,23 +110,9 @@ async function runCLI() {
     // Select VCS provider
     const vcsProvider = await selectVCS();
 
-    // Ask about tunnel configuration
-    console.log(chalk.bold('\n🌐 Tunnel Configuration\n'));
-    console.log(chalk.gray('Terrateam can use a tunnel to expose webhooks without public IP.\n'));
-
-    const { needsTunnel } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'needsTunnel',
-        message: 'Do you need tunnel configuration for webhook delivery?',
-        default: true
-      }
-    ]);
-
+    // Configure tunnel (function handles its own prompts)
     let tunnelCredentials = null;
-    if (needsTunnel) {
-      tunnelCredentials = await configureTunnel(vcsProvider);
-    }
+    tunnelCredentials = await configureTunnel(vcsProvider);
 
     // Setup based on VCS provider
     let setupResult;

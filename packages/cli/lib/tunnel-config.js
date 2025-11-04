@@ -13,6 +13,9 @@ async function configureTunnel(vcsProvider = 'github') {
 
   console.log(chalk.gray('Terratunnel provides a secure tunnel for webhook delivery.'));
   console.log(chalk.gray('This is useful if you don\'t have a publicly accessible URL.\n'));
+  console.log(chalk.yellow('⚠️  Note: Tunnel configuration requires Terratunnel service access.\n'));
+  console.log(chalk.gray('If you skip this, you can configure tunnel settings manually later\n'));
+  console.log(chalk.gray('or use your own publicly accessible URL for webhooks.\n'));
 
   const isDevelopmentMode = process.env.TERRATEAM_DEV_MODE === 'true';
 
@@ -26,7 +29,22 @@ async function configureTunnel(vcsProvider = 'github') {
     };
   }
 
-  console.log(chalk.gray(`We'll authenticate with ${vcsProvider === 'github' ? 'GitHub' : 'GitLab'} to set up your tunnel.\n`));
+  const { wantsTunnel } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'wantsTunnel',
+      message: 'Do you want to configure Terratunnel now?',
+      default: false  // Default to no since it requires external service
+    }
+  ]);
+
+  if (!wantsTunnel) {
+    console.log(chalk.gray('\n✓ Skipping tunnel configuration. You can set this up later.\n'));
+    return null;
+  }
+
+  console.log(chalk.gray(`\nWe'll authenticate with ${vcsProvider === 'github' ? 'GitHub' : 'GitLab'} to set up your tunnel.`));
+  console.log(chalk.gray('This will open a browser window for OAuth authentication.\n'));
 
   const { readyToAuthenticate } = await inquirer.prompt([
     {
@@ -38,7 +56,7 @@ async function configureTunnel(vcsProvider = 'github') {
   ]);
 
   if (!readyToAuthenticate) {
-    console.log(chalk.yellow('\n⚠️  Skipping tunnel configuration. You can configure this later.\n'));
+    console.log(chalk.yellow('\n⚠️  Skipping tunnel configuration.\n'));
     return null;
   }
 
@@ -46,7 +64,26 @@ async function configureTunnel(vcsProvider = 'github') {
   const callbackPort = 3001; // Use different port from main app
   const spinner = ora('Starting OAuth flow...').start();
 
+  let serverCleanup = null;
+
   try {
+    // Create callback server with timeout
+    const serverResult = startOAuthServer(callbackPort, spinner);
+    const serverPromise = serverResult.promise;
+    serverCleanup = serverResult.cleanup;
+
+    // Add a timeout to prevent hanging forever
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('OAuth flow timed out after 2 minutes. The Terratunnel service may be unavailable.'));
+      }, 120000); // 2 minute timeout
+    });
+
+    spinner.text = 'Starting local callback server...';
+
+    // Wait a bit for server to start
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Initiate OAuth flow
     const oauthUrl = vcsProvider === 'github'
       ? 'https://tunnel.terrateam.dev/api/auth/github'
@@ -55,19 +92,23 @@ async function configureTunnel(vcsProvider = 'github') {
     const redirectUrl = `http://127.0.0.1:${callbackPort}/callback`;
     const fullOauthUrl = `${oauthUrl}?redirect_uri=${encodeURIComponent(redirectUrl)}`;
 
-    // Create callback server
-    const credentials = await startOAuthServer(callbackPort, spinner);
-
     spinner.text = 'Opening browser for authentication...';
 
     // Open browser
-    await open(fullOauthUrl);
+    try {
+      await open(fullOauthUrl);
+      spinner.text = 'Waiting for authentication in browser...';
+      spinner.info('Browser opened. Complete authentication in your browser, then return here.');
+      spinner.start('Waiting for authentication...');
+    } catch (openError) {
+      spinner.warn('Could not open browser automatically');
+      console.log(chalk.yellow('\nPlease open this URL manually in your browser:'));
+      console.log(chalk.blue(fullOauthUrl) + '\n');
+      spinner.start('Waiting for authentication...');
+    }
 
-    spinner.text = 'Waiting for authentication...';
-    spinner.info('Browser opened. Please complete authentication in your browser.');
-
-    // Wait for OAuth callback
-    const result = await credentials;
+    // Wait for OAuth callback with timeout
+    const result = await Promise.race([serverPromise, timeoutPromise]);
 
     spinner.succeed('Tunnel configured successfully!');
 
@@ -76,7 +117,18 @@ async function configureTunnel(vcsProvider = 'github') {
     return result;
 
   } catch (error) {
+    // Clean up server if it's still running
+    if (serverCleanup) {
+      try {
+        serverCleanup();
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+    }
+
     spinner.fail('Tunnel configuration failed');
+
+    console.log(chalk.yellow(`\nError: ${error.message}\n`));
 
     // Ask if user wants to continue without tunnel
     const { continueWithoutTunnel } = await inquirer.prompt([
@@ -92,18 +144,20 @@ async function configureTunnel(vcsProvider = 'github') {
       throw new Error('Setup cancelled - tunnel configuration required');
     }
 
-    console.log(chalk.yellow('\n⚠️  Continuing without tunnel. You can configure this later.\n'));
+    console.log(chalk.gray('\n✓ Continuing without tunnel. You can configure TERRATUNNEL_API_KEY manually later.\n'));
     return null;
   }
 }
 
 /**
  * Start OAuth callback server
+ * Returns an object with { promise, cleanup }
  */
 function startOAuthServer(port, spinner) {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    let server;
+  const app = express();
+  let server;
+
+  const promise = new Promise((resolve, reject) => {
 
     app.get('/callback', (req, res) => {
       const { code, state, error } = req.query;
@@ -233,12 +287,27 @@ function startOAuthServer(port, spinner) {
       }
     });
 
-    // Timeout after 5 minutes
+    // Timeout after 5 minutes (internal timeout, external timeout is 2 min)
     setTimeout(() => {
-      server.close();
+      if (server) {
+        server.close();
+      }
       reject(new Error('Timeout waiting for OAuth callback'));
     }, 5 * 60 * 1000);
   });
+
+  // Cleanup function to close server
+  const cleanup = () => {
+    if (server) {
+      try {
+        server.close();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+  };
+
+  return { promise, cleanup };
 }
 
 /**
