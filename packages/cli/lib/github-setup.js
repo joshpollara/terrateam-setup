@@ -11,12 +11,83 @@ const updateDotenv = require('update-dotenv');
 const { getManifest, createAppFromCode } = require('./github-manifest');
 
 /**
- * Start a local server to receive the GitHub App creation callback
+ * Start a local server to serve manifest submission page and receive callback
  */
-function startCallbackServer(port = 3000) {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    let server;
+function startCallbackServerWithManifest(port = 3000, manifest, createAppUrl) {
+  const app = express();
+  let server;
+
+  const promise = new Promise((resolve, reject) => {
+    // Serve the manifest submission page
+    app.get('/create-app', (req, res) => {
+      res.send(`
+        <html>
+        <head>
+          <title>Create Terrateam GitHub App</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 2rem;
+            }
+            .container {
+              background: white;
+              padding: 3rem;
+              border-radius: 12px;
+              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+              text-align: center;
+              max-width: 600px;
+            }
+            h1 { color: #2d3748; margin-bottom: 1rem; }
+            p { color: #718096; line-height: 1.6; margin-bottom: 2rem; }
+            .btn {
+              background: #667eea;
+              color: white;
+              border: none;
+              padding: 1rem 2rem;
+              font-size: 1rem;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: background 0.2s;
+            }
+            .btn:hover {
+              background: #5568d3;
+            }
+            .spinner {
+              display: none;
+              margin-top: 1rem;
+            }
+            .spinner.active {
+              display: block;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🚀 Create Terrateam GitHub App</h1>
+            <p>Click the button below to create your GitHub App. You'll be taken to GitHub to review and approve the app permissions.</p>
+            <form id="create-app-form" action="${createAppUrl}" method="POST" target="_self">
+              <input type="hidden" name="manifest" value='${manifest}'>
+              <button type="submit" class="btn" onclick="showSpinner()">Create GitHub App</button>
+            </form>
+            <div class="spinner" id="spinner">
+              <p>Redirecting to GitHub...</p>
+            </div>
+          </div>
+          <script>
+            function showSpinner() {
+              document.getElementById('spinner').classList.add('active');
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    });
 
     // Callback route to receive the code from GitHub
     app.get('/probot/success', (req, res) => {
@@ -95,10 +166,25 @@ function startCallbackServer(port = 3000) {
 
     // Timeout after 10 minutes
     setTimeout(() => {
-      server.close();
+      if (server) {
+        server.close();
+      }
       reject(new Error('Timeout waiting for GitHub App creation'));
     }, 10 * 60 * 1000);
   });
+
+  // Cleanup function
+  const cleanup = () => {
+    if (server) {
+      try {
+        server.close();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  };
+
+  return { promise, cleanup };
 }
 
 /**
@@ -201,10 +287,6 @@ async function setupGitHub(userInfo, tunnelCredentials) {
     createAppUrl += '/settings/apps/new';
   }
 
-  // Add manifest as query parameter
-  const manifestParam = encodeURIComponent(manifest);
-  createAppUrl += `?manifest=${manifestParam}`;
-
   console.log(chalk.bold('\n📝 Create GitHub App\n'));
   console.log(chalk.gray('We will now open your browser to create a GitHub App.\n'));
   console.log(chalk.gray('Steps:'));
@@ -225,16 +307,19 @@ async function setupGitHub(userInfo, tunnelCredentials) {
     throw new Error('User cancelled');
   }
 
-  // Start local callback server
+  // Start local callback server (includes manifest submission page)
   console.log(chalk.gray('\nStarting local callback server...'));
-  const codePromise = startCallbackServer(callbackPort);
+  const serverResult = startCallbackServerWithManifest(callbackPort, manifest, createAppUrl);
+  const codePromise = serverResult.promise;
+  const serverCleanup = serverResult.cleanup;
 
-  // Open browser
+  // Open browser to local manifest submission page
   const spinner = ora('Waiting for GitHub App creation...').start();
   spinner.text = 'Opening browser...';
 
   try {
-    await open(createAppUrl);
+    const localManifestUrl = `http://127.0.0.1:${callbackPort}/create-app`;
+    await open(localManifestUrl);
     spinner.text = 'Waiting for GitHub App creation in browser...';
     spinner.info('Browser opened. Please complete the GitHub App creation in your browser.');
 
@@ -259,6 +344,15 @@ async function setupGitHub(userInfo, tunnelCredentials) {
     };
 
   } catch (error) {
+    // Clean up server on error
+    if (serverCleanup) {
+      try {
+        serverCleanup();
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+    }
+
     spinner.fail('Failed to create GitHub App');
     throw error;
   }
